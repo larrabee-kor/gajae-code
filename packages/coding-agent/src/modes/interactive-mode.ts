@@ -423,7 +423,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.editor.setUseTerminalCursor(this.ui.getShowHardwareCursor());
 		this.editor.setAutocompleteMaxVisible(settings.get("autocompleteMaxVisible"));
 		this.editor.onAutocompleteCancel = () => {
-			this.ui.requestRender(true);
+			this.ui.requestRender();
 		};
 		this.editor.onAutocompleteUpdate = () => {
 			this.ui.requestRender();
@@ -433,7 +433,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			this.#syncEditorMaxHeight();
 			this.updateEditorChrome();
 			this.editor.invalidate();
-			this.ui.requestRender(true, "resize");
+			this.ui.requestResizeRender();
 		};
 		process.stdout.on("resize", this.#resizeHandler);
 		try {
@@ -2077,7 +2077,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		nextEditor.setUseTerminalCursor(this.ui.getShowHardwareCursor());
 		nextEditor.setAutocompleteMaxVisible(this.settings.get("autocompleteMaxVisible"));
 		nextEditor.onAutocompleteCancel = () => {
-			this.ui.requestRender(true);
+			this.ui.requestRender();
 		};
 		nextEditor.onAutocompleteUpdate = () => {
 			this.ui.requestRender();
