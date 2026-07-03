@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo-vertical.png" alt="Gajae-Code vertical logo" width="320" />
+</p>
+
+<p align="center">
   <img src="assets/hero.png" alt="Gajae-Code autonomous coding-agent hero illustration" width="100%" />
 </p>
 

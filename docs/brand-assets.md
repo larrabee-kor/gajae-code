@@ -4,6 +4,7 @@ Gajae-Code uses the current GJC character and hero images in `assets/` for READM
 
 | Asset | Purpose |
 | --- | --- |
+| [`assets/logo-vertical.png`](../assets/logo-vertical.png) | Vertical README/docs logo lockup for Gajae-Code. |
 | [`assets/hero.png`](../assets/hero.png) | Wide README/docs hero image for Gajae-Code. |
 | [`assets/character.png`](../assets/character.png) | Standalone Gajae-Code character mascot. |
 | [`assets/rlm.png`](../assets/rlm.png) | Feature card for the `rlm` research/REPL mode (scientist mascot). |
