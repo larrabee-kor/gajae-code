@@ -22,8 +22,6 @@
 - Shared the duplicated two-column dashboard renderer used by agent and extension dashboards, keeping narrow-width truncation behavior in one tested component.
 - Avoided duplicate line splitting when formatting `ast_grep` matches, reducing allocation in large structural-search result rendering.
 
-### Fixed
-
 - Tab now queues prompt drafts immediately while the agent is streaming or compacting instead of opening/applying forced file autocomplete first.
 
 ## [0.7.11] - 2026-07-03
