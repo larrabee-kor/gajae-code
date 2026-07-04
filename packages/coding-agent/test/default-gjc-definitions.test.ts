@@ -322,8 +322,8 @@ Project executor override body.
 		expect(routing).toMatch(/clear,\s+bounded,\s+and low-risk[\s\S]*smallest correct change[\s\S]*verify/i);
 		expect(routing).toMatch(/Small verification needs[\s\S]*do not make[\s\S]*planning workflow/i);
 		expect(routing).toMatch(/Architecture\/sequence risk[\s\S]*`ralplan --deliberate`/i);
-		expect(routing).toMatch(/Ambiguous requirements[\s\S]*`deep-interview`/i);
-		expect(routing).toMatch(/Durable tracking[\s\S]*`ultragoal`/i);
+		expect(routing).toMatch(/Vague requirements[\s\S]*`deep-interview`/i);
+		expect(routing).toMatch(/Durable goal ledger[\s\S]*`ultragoal`/i);
 		expect(routing).toMatch(
 			/root-cause phase schema[\s\S]*only[\s\S]*contradiction[\s\S]*regression[\s\S]*high-risk transition/i,
 		);
