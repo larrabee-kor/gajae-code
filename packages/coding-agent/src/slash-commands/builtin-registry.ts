@@ -59,6 +59,32 @@ function fastStatusRoleTargets(): Array<{ id: GjcModelAssignmentTargetId; label:
 	}));
 }
 
+function toSlashCommandRuntime(runtime: TuiSlashCommandRuntime): SlashCommandRuntime {
+	const ctx = runtime.ctx;
+	return {
+		session: ctx.session,
+		sessionManager: ctx.sessionManager,
+		settings: ctx.settings,
+		cwd: ctx.sessionManager.getCwd(),
+		output: (text: string) => {
+			ctx.showStatus(text);
+		},
+		refreshCommands: () => ctx.refreshSlashCommandState(),
+		reloadPlugins: async () => {
+			const projectPath = await resolveActiveProjectRegistryPath(ctx.sessionManager.getCwd());
+			clearPluginRootsAndCaches(projectPath ? [projectPath] : undefined);
+			await ctx.refreshSlashCommandState();
+			await ctx.session.refreshSshTool({ activateIfAvailable: true });
+		},
+		notifyTitleChanged: () => {
+			ctx.statusLine.invalidate();
+			ctx.updateEditorBorderColor();
+			ctx.ui.requestRender();
+		},
+		notifyConfigChanged: () => ctx.notifyConfigChanged?.(),
+	};
+}
+
 function parseProviderSetupSlashArgs(args: string): {
 	preset?: string;
 	compat?: string;
@@ -300,7 +326,7 @@ function modelSelectionUsage(runtime: SlashCommandRuntime, currentModelLine?: st
 	return [
 		currentModelLine,
 		formatModelAssignmentSummary(runtime),
-		"ACP/text mode: use /model <model> for DEFAULT, or /model <target> <model> for EXECUTOR, ARCHITECT, PLANNER, or CRITIC.",
+		"Use /model <model> for DEFAULT, or /model <target> <model[:effort]> for EXECUTOR, ARCHITECT, PLANNER, or CRITIC.",
 		formatModelOnboardingGuidance(),
 	]
 		.filter((line): line is string => Boolean(line))
@@ -372,6 +398,7 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<SlashCommandSpec> = [
 		acpDescription: "Show current model selection",
 		inlineHint: "[target] <model>",
 		acpInputHint: "[target] <model>",
+		allowArgs: true,
 		handle: async (command, runtime) => {
 			if (command.args) {
 				const parsedArgs = parseModelCommandArgs(command.args);
@@ -429,10 +456,7 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<SlashCommandSpec> = [
 							if (target.settingsPath === "modelRoles") {
 								runtime.settings.setModelRole(parsedArgs.targetId, roleSelector);
 							} else {
-								runtime.settings.set("task.agentModelOverrides", {
-									...overrides,
-									[parsedArgs.targetId]: roleSelector,
-								});
+								runtime.settings.setAgentModelOverride(parsedArgs.targetId, roleSelector);
 							}
 						}
 						runtime.settings.getStorage()?.recordModelUsage(`${selection.model.provider}/${selection.model.id}`);
@@ -454,7 +478,18 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<SlashCommandSpec> = [
 			);
 			return commandConsumed();
 		},
-		handleTui: (_command, runtime) => {
+		handleTui: async (command, runtime) => {
+			if (command.args.trim()) {
+				const result = await BUILTIN_SLASH_COMMAND_LOOKUP.get(command.name)?.handle?.(
+					command,
+					toSlashCommandRuntime(runtime),
+				);
+				runtime.ctx.statusLine.invalidate();
+				runtime.ctx.updateEditorBorderColor();
+				runtime.ctx.editor.setText("");
+				runtime.ctx.ui.requestRender();
+				return result;
+			}
 			runtime.ctx.showModelSelector();
 			runtime.ctx.editor.setText("");
 		},
@@ -1303,29 +1338,8 @@ export async function executeBuiltinSlashCommand(
 		return true;
 	}
 	if (command.handle) {
-		// No TUI-specific override → adapt the ACP/text-mode `handle` to the
-		// TUI by routing `runtime.output` through `ctx.showStatus`, clearing
-		// the editor after the call, and reusing the active session's plugin
-		// reload pipeline. Spec authors get a single body usable from either
-		// dispatcher without forcing every TUI test to construct the full
-		// `SlashCommandRuntime` shape.
 		const ctx = runtime.ctx;
-		const adapted: SlashCommandRuntime = {
-			session: ctx.session,
-			sessionManager: ctx.sessionManager,
-			settings: ctx.settings,
-			cwd: ctx.sessionManager.getCwd(),
-			output: (text: string) => {
-				ctx.showStatus(text);
-			},
-			refreshCommands: () => ctx.refreshSlashCommandState(),
-			reloadPlugins: async () => {
-				const projectPath = await resolveActiveProjectRegistryPath(ctx.sessionManager.getCwd());
-				clearPluginRootsAndCaches(projectPath ? [projectPath] : undefined);
-				await ctx.refreshSlashCommandState();
-				await ctx.session.refreshSshTool({ activateIfAvailable: true });
-			},
-		};
+		const adapted = toSlashCommandRuntime(runtime);
 		const result = await command.handle(parsed, adapted);
 		ctx.editor.setText("");
 		if (result && typeof result === "object" && "prompt" in result) return result.prompt;
