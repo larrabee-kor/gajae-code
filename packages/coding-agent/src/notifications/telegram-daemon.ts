@@ -1155,6 +1155,7 @@ export class TelegramNotificationDaemon {
 		commandCtx: { chatType?: string; botUsername?: string },
 	): Promise<boolean> {
 		if (!isLifecycleCommandText(text, commandCtx)) return false;
+		if (!(await this.pairedChatIsPrivate())) return true;
 		const reply = async (body: string): Promise<void> => {
 			for (const text of splitTelegramPlainText(body)) {
 				await this.botApi
@@ -1537,6 +1538,11 @@ export class TelegramNotificationDaemon {
 		await this.flushPool();
 	}
 
+	private async existingTopicForPrivateChat(sessionId: string): Promise<string | undefined> {
+		if (!(await this.pairedChatIsPrivate())) return undefined;
+		return this.topics.get(sessionId)?.topicId;
+	}
+
 	private rememberPendingThreadedFrame(sessionId: string, send: ThreadedSend, msg: Record<string, unknown>): void {
 		const frames = this.pendingThreadedFrames.get(sessionId) ?? [];
 		frames.push({ send, msg });
@@ -1558,6 +1564,7 @@ export class TelegramNotificationDaemon {
 	 * one-time nudge) or drop fail-closed for a non-private chat.
 	 */
 	private async ensureTopic(sessionId: string, name: string): Promise<string | undefined> {
+		if (!(await this.pairedChatIsPrivate())) return undefined;
 		const existing = this.topics.get(sessionId);
 		if (existing) return existing.topicId;
 		try {
@@ -1732,6 +1739,7 @@ export class TelegramNotificationDaemon {
 	private async flushPool(): Promise<void> {
 		for (const item of this.pool.drain()) {
 			const { send, topicId } = item.payload;
+			if (topicId && !(await this.pairedChatIsPrivate())) continue;
 			// Threaded topic when available; otherwise deliver flat to the paired chat.
 			const threadField = topicId ? { message_thread_id: Number(topicId) } : {};
 			try {
@@ -1790,9 +1798,10 @@ export class TelegramNotificationDaemon {
 	}
 
 	/**
-	 * Resolve once (cached) whether the paired `chatId` is a private chat. Flat
-	 * fallback is only safe in a private DM; any non-private chat or an unresolvable
-	 * `getChat` is treated as not-private so delivery fails closed.
+	 * Resolve (and cache successful resolution of) whether the paired `chatId` is a
+	 * private chat. Topic and flat delivery are only safe in a private DM; any
+	 * non-private chat fails closed, while a transient `getChat` failure fails closed
+	 * for the current attempt and is retried later.
 	 */
 	private async pairedChatIsPrivate(): Promise<boolean> {
 		if (this.pairedChatPrivate !== undefined) return this.pairedChatPrivate;
@@ -1801,15 +1810,16 @@ export class TelegramNotificationDaemon {
 				result?: { type?: string };
 			};
 			this.pairedChatPrivate = res.result?.type === "private";
-		} catch {
-			this.pairedChatPrivate = false;
+			return this.pairedChatPrivate;
+		} catch (e) {
+			logger.warn(`notifications: getChat failed while checking Telegram chat privacy: ${String(e)}`);
+			return false;
 		}
-		return this.pairedChatPrivate;
 	}
 
 	/** Tell the user once (per daemon run) how to enable Threaded Mode. */
 	private async notifyThreadedFallback(): Promise<void> {
-		if (this.threadedFallbackNoticeSent) return;
+		if (this.threadedFallbackNoticeSent || !(await this.pairedChatIsPrivate())) return;
 		this.threadedFallbackNoticeSent = true;
 		try {
 			await this.botApi.call("sendMessage", {
@@ -1854,7 +1864,7 @@ export class TelegramNotificationDaemon {
 	/** Send a single `typing` chat action into a busy session's topic (best-effort). */
 	private async sendTyping(sessionId: string): Promise<void> {
 		const topicId = this.topics.get(sessionId)?.topicId;
-		if (!topicId) return;
+		if (!topicId || !(await this.pairedChatIsPrivate())) return;
 		try {
 			await this.botApi.call("sendChatAction", {
 				chat_id: this.opts.chatId,
@@ -1868,6 +1878,7 @@ export class TelegramNotificationDaemon {
 
 	/** Set a native reaction on an inbound thread message (best-effort). */
 	private async setReaction(messageId: number, emoji: string): Promise<void> {
+		if (!(await this.pairedChatIsPrivate())) return;
 		try {
 			await this.botApi.call("setMessageReaction", {
 				chat_id: this.opts.chatId,
@@ -1895,7 +1906,7 @@ export class TelegramNotificationDaemon {
 		if (typeof msg?.type === "string" && TelegramNotificationDaemon.THREADED_FRAMES.has(msg.type)) {
 			const send = renderThreadedFrame(msg);
 			if (!send) return;
-			const existingTopic = this.topics.get(session.sessionId)?.topicId;
+			const existingTopic = await this.existingTopicForPrivateChat(session.sessionId);
 			if (!send.identity && !existingTopic && !this.flatIdentitySent.has(session.sessionId)) {
 				this.rememberPendingThreadedFrame(session.sessionId, send, msg as Record<string, unknown>);
 				return;
@@ -2005,6 +2016,7 @@ export class TelegramNotificationDaemon {
 
 	private async sendStaleGuidance(callbackId: unknown): Promise<void> {
 		await this.answerCallbackQueryBestEffort(callbackId, "Button is stale");
+		if (!(await this.pairedChatIsPrivate())) return;
 		await this.botApi.call("sendMessage", {
 			chat_id: this.opts.chatId,
 			text: "This button is stale after notification daemon restart. Please answer locally in the GJC session or wait for a fresh notification.",
@@ -2025,12 +2037,12 @@ export class TelegramNotificationDaemon {
 			const cmdText = typeof m?.text === "string" ? m.text : undefined;
 			const commandCtx = { chatType, botUsername: this.botUsername };
 			if (m !== undefined && String(chatId) === String(this.opts.chatId)) {
+				if (chatType !== undefined && chatType !== "private" && isLifecycleCommandLikeText(cmdText)) return;
 				if (isLifecycleCommandText(cmdText, commandCtx)) {
 					const updateId = (update as { update_id?: number }).update_id;
 					const threadId = typeof m.message_thread_id === "number" ? (m.message_thread_id as number) : undefined;
 					if (await this.handleLifecycleCommand(cmdText, updateId, threadId, commandCtx)) return;
 				}
-				if (chatType !== undefined && chatType !== "private" && isLifecycleCommandLikeText(cmdText)) return;
 			}
 		}
 		// Threaded injection: a free-text message in a known topic (not a button

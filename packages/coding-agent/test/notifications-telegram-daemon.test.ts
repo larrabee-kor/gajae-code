@@ -86,6 +86,8 @@ class FakeBotApi {
 		}
 		if (method === "getMe")
 			return { ok: true, result: this.botUsername ? { id: 1, username: this.botUsername } : { id: 1 } };
+		if (method === "getChat")
+			return { ok: true, result: { id: (body as { chat_id?: unknown }).chat_id, type: "private" } };
 		if (method === "getFile") return { ok: true, result: { file_path: "docs/file_7.bin" } };
 		if (method === "createForumTopic") return { ok: true, result: { message_thread_id: this.calls.length } };
 		if (method === "sendMessage") return { ok: true, result: { message_id: this.calls.length } };
@@ -477,6 +479,35 @@ describe("telegram daemon", () => {
 			callback_query: { id: "cb2", data: "expired", message: { chat: { id: 42 } } },
 		});
 		expect(FakeWs.instances[0]!.sent).toHaveLength(0);
+	});
+
+	test("stale callbacks in non-private chats do not send guidance messages", async () => {
+		FakeWs.instances = [];
+		const bot = new FakeBotApi();
+		bot.call = (async (method: string, body: any) => {
+			bot.calls.push({ method, body });
+			if (method === "getChat") return { ok: true, result: { id: body.chat_id, type: "supergroup" } };
+			if (method === "sendMessage") return { ok: true, result: { message_id: bot.calls.length } };
+			return { ok: true, result: true };
+		}) as any;
+		const agentDir = tempAgentDir();
+		const daemon = new TelegramNotificationDaemon({
+			settings: setPrivateAgentDir(settings(agentDir), agentDir),
+			ownerId: "owner",
+			botToken: "tok",
+			chatId: "-10042",
+			botApi: bot,
+			WebSocketImpl: FakeWs as any,
+		});
+		daemon.connectSession("A", "ws://a", "ta");
+
+		await daemon.handleTelegramUpdate({
+			callback_query: { id: "cb", data: "missing", message: { chat: { id: -10042 } } },
+		});
+
+		expect(FakeWs.instances[0]!.sent).toHaveLength(0);
+		expect(bot.calls.some(c => c.method === "answerCallbackQuery" && c.body.text === "Button is stale")).toBe(true);
+		expect(bot.calls.filter(c => c.method === "sendMessage")).toHaveLength(0);
 	});
 
 	test("known alias with dead target is stale guidance with zero frames", async () => {
@@ -986,8 +1017,14 @@ test("daemon registers in-thread config and lifecycle commands and drops stale r
 	expect(cmds).not.toContain("attach");
 	expect(cmds).not.toContain("detach");
 });
-test("forum lifecycle commands must target this bot username", async () => {
+test("forum lifecycle commands fail closed even when addressed to this bot username", async () => {
 	const bot = new FakeBotApi();
+	bot.call = (async (method: string, body: any) => {
+		bot.calls.push({ method, body });
+		if (method === "getChat") return { ok: true, result: { id: body.chat_id, type: "supergroup" } };
+		if (method === "sendMessage") return { ok: true, result: { message_id: bot.calls.length } };
+		return { ok: true, result: true };
+	}) as any;
 	const daemon = new TelegramNotificationDaemon({
 		settings: settings(tempAgentDir()),
 		ownerId: "owner",
@@ -1005,15 +1042,13 @@ test("forum lifecycle commands must target this bot username", async () => {
 		update_id: 102,
 		message: { chat: { id: -10042, type: "supergroup" }, text: "/session_recent@OtherBot", message_id: 2 },
 	});
-	expect(bot.calls.filter(c => c.method === "sendMessage")).toHaveLength(0);
-
 	await daemon.handleTelegramUpdate({
 		update_id: 103,
 		message: { chat: { id: -10042, type: "supergroup" }, text: "/session_recent@GajaeCodeBot", message_id: 3 },
 	});
-	const sends = bot.calls.filter(c => c.method === "sendMessage");
-	expect(sends).toHaveLength(1);
-	expect(String(sends[0]!.body.text)).toContain("No recent sessions.");
+
+	expect(bot.calls.filter(c => c.method === "sendMessage")).toHaveLength(0);
+	expect(bot.calls.filter(c => c.method === "getChat")).toHaveLength(0);
 });
 
 test("forum lifecycle commands fail closed when bot username is unavailable", async () => {
@@ -1280,7 +1315,9 @@ test("stale identity after loadTopics reuses the persisted repo branch owner", a
 	});
 
 	expect(bot.calls.filter(c => c.method === "createForumTopic").map(c => c.body.name)).toEqual(["gajae-code/dev"]);
-	expect(bot.calls.filter(c => c.method === "sendMessage").map(c => c.body.message_thread_id)).toEqual([1]);
+	const threadedSends = bot.calls.filter(c => c.method === "sendMessage").map(c => c.body.message_thread_id);
+	expect(threadedSends).toHaveLength(1);
+	expect(Number(threadedSends[0])).toBeGreaterThan(0);
 });
 
 test("threaded mode off: frames fall back to the flat paired chat with a one-time notice", async () => {
@@ -1409,15 +1446,16 @@ test("threaded mode off: image_attachment uploads flat without message_thread_id
 	expect(notice).toHaveLength(1);
 });
 
-test("threaded off + non-private chat: fails closed (no flat send, no notice)", async () => {
+test("non-private chat: fails closed before topic creation or flat delivery", async () => {
 	for (const chatType of ["supergroup", "group", "channel"]) {
 		const agentDir = tempAgentDir();
 		const bot = new FakeBotApi();
-		// Topics off AND the paired chat is not a private DM: must drop fail-closed
-		// so session content never lands in a shared chat.
+		// Even if the target chat would accept forum topic creation, the paired chat
+		// contract is private-only, so the daemon must fail closed before creating
+		// topics or sending session content into a shared chat.
 		bot.call = (async (method: string, body: any) => {
 			bot.calls.push({ method, body });
-			if (method === "createForumTopic") return { ok: true, result: {} };
+			if (method === "createForumTopic") return { ok: true, result: { message_thread_id: 777 } };
 			if (method === "getChat") return { ok: true, result: { type: chatType } };
 			if (method === "sendMessage") return { ok: true, result: { message_id: bot.calls.length } };
 			return { ok: true, result: true };
@@ -1451,8 +1489,8 @@ test("threaded off + non-private chat: fails closed (no flat send, no notice)", 
 			options: ["Yes"],
 		});
 
-		const sends = bot.calls.filter(c => c.method === "sendMessage");
-		expect(sends).toHaveLength(0);
+		expect(bot.calls.filter(c => c.method === "createForumTopic")).toHaveLength(0);
+		expect(bot.calls.filter(c => c.method === "sendMessage")).toHaveLength(0);
 	}
 });
 
