@@ -1448,6 +1448,13 @@ export class TelegramNotificationDaemon {
 		return undefined;
 	}
 
+	private sessionCanClaimIdentity(session: SessionSocket, msg: { repo?: unknown; branch?: unknown }): boolean {
+		const current = this.sessions.get(session.sessionId);
+		if (current) return current === session;
+		const ownerId = this.topicOwnerForIdentity(msg);
+		return !ownerId || ownerId === session.sessionId;
+	}
+
 	private async submitThreadedFrame(sessionId: string, send: ThreadedSend, topicId: string): Promise<void> {
 		this.pool.submit({
 			sessionId,
@@ -1821,7 +1828,7 @@ export class TelegramNotificationDaemon {
 				this.rememberPendingThreadedFrame(session.sessionId, send, msg as Record<string, unknown>);
 				return;
 			}
-			if (send.identity) {
+			if (send.identity && !this.sessionCanClaimIdentity(session, msg)) {
 				const ownerId = this.topicOwnerForIdentity(msg);
 				const ownerTopic = ownerId ? this.topics.get(ownerId) : undefined;
 				if (ownerId && ownerId !== session.sessionId && ownerTopic) {
