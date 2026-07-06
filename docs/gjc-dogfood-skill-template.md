@@ -1,13 +1,25 @@
 # GJC dogfood local skill template
 
-Issue #93 requested a gaebal-gajae/operator dogfood skill. The live issue has no comment approving a fifth bundled default workflow skill, so this stays a local template instead of changing the default workflow surface. Operators can copy it into a user or project override when they want GJC-first session guidance:
+Issue #93 requested a gaebal-gajae/operator dogfood skill. The live issue has no comment approving a fifth bundled default workflow skill, so this stays a local template instead of changing the default workflow surface. Operators can copy it into a user or project override when they want GJC-first session guidance.
+
+The installable skill body is everything from the first frontmatter marker down; the frontmatter must be the **first line** of the installed file or the skill scan silently skips it (the scan requires a parsed `description`). Install into the user-level scan location (`~/.gjc/agent/skills/`, not `~/.gjc/skills/`):
 
 ```sh
-mkdir -p ~/.gjc/skills/gjc-dogfood
-cp docs/gjc-dogfood-skill-template.md ~/.gjc/skills/gjc-dogfood/SKILL.md
+mkdir -p ~/.gjc/agent/skills/gjc-dogfood
+sed -n '/^---$/,$p' docs/gjc-dogfood-skill-template.md > ~/.gjc/agent/skills/gjc-dogfood/SKILL.md
 ```
 
-For a single project, copy it to `<project>/.gjc/skills/gjc-dogfood/SKILL.md` instead. Do not commit that project `.gjc` copy unless the project explicitly wants a local override.
+For a single project, install to `<project>/.gjc/skills/gjc-dogfood/SKILL.md` with the same extraction. Do not commit that project `.gjc` copy unless the project explicitly wants a local override.
+
+Filesystem skill discovery is off by default, so enable it once (`skills.enabled` plus the native user/project scans are `false` in `DEFAULT_SKILL_DISCOVERY_SETTINGS`):
+
+```sh
+gjc config set skills.enabled true
+gjc config set skills.enablePiUser true      # for the ~/.gjc/agent/skills/ install
+gjc config set skills.enablePiProject true   # for the <project>/.gjc/skills/ install
+```
+
+Then verify in a new session: `/skill:gjc-dogfood` should autocomplete.
 
 ---
 name: gjc-dogfood
