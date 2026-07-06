@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.8.2] - 2026-07-06
 ### Fixed
 
 - Fixed backward jump-to-character (`ctrl+alt+]`) matching the character under the cursor when the cursor is at column 0: `lastIndexOf` clamps a negative start position to 0, so the jump stopped in place instead of skipping the cursor position and continuing into earlier lines.
