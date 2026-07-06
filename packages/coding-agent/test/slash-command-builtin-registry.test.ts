@@ -24,16 +24,32 @@ function createTuiRuntime() {
 	};
 }
 
+function createClearTuiRuntime() {
+	const handleContextClearCommand = vi.fn(async () => {});
+	const setText = vi.fn();
+	const ctx = {
+		handleContextClearCommand,
+		editor: { setText },
+	} as unknown as InteractiveModeContext;
+
+	return {
+		runtime: { ctx, handleBackgroundCommand: () => undefined },
+		handleContextClearCommand,
+		setText,
+	};
+}
+
 describe("builtin /copy slash command", () => {
-	it("is discoverable as a TUI builtin without public subcommands and does not register /clear", () => {
+	it("is discoverable as a TUI builtin without public subcommands", () => {
 		const copyCommand = BUILTIN_SLASH_COMMAND_DEFS.find(command => command.name === "copy");
+		const clearCommand = BUILTIN_SLASH_COMMAND_DEFS.find(command => command.name === "clear");
 
 		expect(copyCommand).toBeDefined();
 		expect(copyCommand?.description).toBe("Copy the last response for review or sharing");
 		expect(copyCommand?.subcommands).toBeUndefined();
 		expect(copyCommand?.inlineHint).toBeUndefined();
-		expect(BUILTIN_SLASH_COMMAND_DEFS.some(command => command.name === "clear")).toBe(false);
-		expect(BUILTIN_SLASH_COMMANDS_INTERNAL.some(command => command.name === "clear")).toBe(false);
+		expect(clearCommand?.description).toBe("Clear context while preserving this session ID");
+		expect(BUILTIN_SLASH_COMMANDS_INTERNAL.some(command => command.name === "clear")).toBe(true);
 	});
 
 	it("surfaces beginner session commands with clear labels", () => {
@@ -144,6 +160,17 @@ describe("builtin /changelog slash command", () => {
 	});
 });
 
+describe("builtin /clear slash command", () => {
+	it("dispatches to context clear without starting the /new flow", async () => {
+		const { runtime, handleContextClearCommand, setText } = createClearTuiRuntime();
+
+		const result = await executeBuiltinSlashCommand("/clear", runtime);
+
+		expect(result).toBe(true);
+		expect(handleContextClearCommand).toHaveBeenCalled();
+		expect(setText).toHaveBeenCalledWith("");
+	});
+});
 function createGoalTuiRuntime(goalModeEnabled: boolean) {
 	const handleGoalModeCommand = vi.fn(async () => {});
 	const addToHistory = vi.fn();

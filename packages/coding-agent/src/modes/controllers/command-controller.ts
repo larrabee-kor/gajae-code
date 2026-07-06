@@ -935,6 +935,42 @@ export class CommandController {
 		await this.#runNewSessionFlow();
 	}
 
+	async handleContextClearCommand(): Promise<void> {
+		if (this.ctx.loadingAnimation) {
+			this.ctx.loadingAnimation.stop();
+			this.ctx.loadingAnimation = undefined;
+		}
+		this.ctx.statusContainer.clear();
+
+		if (this.ctx.session.isCompacting) {
+			this.ctx.session.abortCompaction();
+			while (this.ctx.session.isCompacting) {
+				await Bun.sleep(10);
+			}
+		}
+		if (!(await this.ctx.session.clearContext())) return;
+		setSessionTerminalTitle(this.ctx.sessionManager.getSessionName(), this.ctx.sessionManager.getCwd());
+
+		this.ctx.statusLine.invalidate();
+		this.ctx.statusLine.setSessionStartTime(Date.now());
+		this.ctx.updateEditorTopBorder();
+		this.ctx.updateEditorBorderColor();
+		this.ctx.ui.requestRender();
+
+		this.ctx.chatContainer.clear();
+		this.ctx.pendingMessagesContainer.clear();
+		this.ctx.compactionQueuedMessages = [];
+		this.ctx.streamingComponent = undefined;
+		this.ctx.streamingMessage = undefined;
+		this.ctx.pendingTools.clear();
+
+		this.ctx.chatContainer.addChild(
+			new Text(`${theme.fg("accent", `${theme.status.success} Context cleared`)}`, 1, 0),
+		);
+		await this.ctx.reloadTodos();
+		this.ctx.ui.requestRender();
+	}
+
 	async handleDropCommand(): Promise<void> {
 		if (!this.ctx.sessionManager.getSessionFile()) {
 			this.ctx.showError("Nothing to drop (in-memory session)");

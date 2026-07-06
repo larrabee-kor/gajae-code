@@ -1118,6 +1118,22 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<SlashCommandSpec> = [
 		},
 	},
 	{
+		name: "clear",
+		priority: 97,
+		description: "Clear context while preserving this session ID",
+		acpDescription: "Clear context while preserving this session ID",
+		handle: async (_command, runtime) => {
+			const beforeSessionId = runtime.session.sessionId;
+			await runtime.session.clearContext();
+			await runtime.output(`Context cleared. Session preserved: ${beforeSessionId}`);
+			return commandConsumed();
+		},
+		handleTui: async (_command, runtime) => {
+			runtime.ctx.editor.setText("");
+			await runtime.ctx.handleContextClearCommand();
+		},
+	},
+	{
 		name: "new",
 		priority: 96,
 		description: "Start a new session",

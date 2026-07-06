@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+
+- Added a `/clear` slash command that clears the active conversation context while preserving the current session id and durable session history (#1677).
 
 ### Fixed
 
