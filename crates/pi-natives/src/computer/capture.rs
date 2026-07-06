@@ -255,6 +255,7 @@ unsafe fn display_mode_pixels(display_id: CgDirectDisplayId) -> Option<(usize, u
 	}
 	// SAFETY: `mode` is non-null and valid until released below.
 	let width = unsafe { CGDisplayModeGetPixelWidth(mode) };
+	// SAFETY: `mode` is non-null and valid until released below.
 	let height = unsafe { CGDisplayModeGetPixelHeight(mode) };
 	// SAFETY: `mode` is non-null and is not used after release.
 	unsafe { CGDisplayModeRelease(mode) };
