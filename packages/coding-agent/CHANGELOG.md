@@ -4,6 +4,7 @@
 ### Added
 
 - Added a `/clear` slash command that clears the active conversation context while preserving the current session id and durable session history (#1677).
+- Added an Extragoal local skill template (`docs/extragoal-skill-template.md`) documenting an external final review gate on top of `ultragoal` — a fresh-context, cross-family, tool-restricted read-only reviewer with a machine-parsable verdict contract, mandatory bundle secret scan, prompt-injection stance, explicit findings triage, and a bounded re-sign loop — plus a `reviewer` stance profile and cross-session review-gate recipe in `docs/multi-vendor-profiles.md`, pinned by `test/extragoal-template.test.ts`.
 
 ### Fixed
 
