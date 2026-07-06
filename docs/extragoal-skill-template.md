@@ -125,7 +125,12 @@ gjc -p --no-session --model openai-codex/gpt-5.5:high --tools read,search,find "
 
 Adding `--mpreset reviewer` on top is an **optional enhancement**, not a prerequisite: the `reviewer` profile is user-installed `models.yml` config from [Cross-vendor role-based profiles](./multi-vendor-profiles.md), and `gjc --mpreset reviewer` fails with an unknown-profile error when that profile has not been copied in. The profile's role mapping matters for interactive review sessions where roles do get delegated — the one-shot gate works without it.
 
-Read-only is enforced by the `--tools` allowlist, not by the prompt — a reviewer invocation without a tool allowlist does not satisfy the leaf contract. The sub-session shares no conversation state with the authoring session and may inspect the repo read-only when the diff alone is not self-contained.
+Read-only is enforced for the built-in tool surface by the `--tools` allowlist, not by the prompt — a reviewer invocation without a tool allowlist does not satisfy the leaf contract. Two session utilities are injected **beyond** the allowlist and must be handled:
+
+- `goal` (auto-added whenever `goal.enabled` is on, its default): its mutating ops (`create`, `complete`, `pause`, `drop`) persist session mode state through the session host, so a reviewer — or prompt-injected bundle text — could write `.gjc` session state before the violation is even recorded. **Disabling it is mandatory, not optional**: the review working directory must contain a `.gjc/config.yml` with `goal:` / `  enabled: false` (verified to remove the injected tool), and an invocation with the goal tool still injected does not satisfy the leaf contract.
+- `generate_image` (registered whenever an image-capable credential exists): it has no disable setting but cannot write to the repository or `.gjc` state; any reviewer call to it — or to any tool outside `read`/`search`/`find` — is a contract violation that fails the gate round and is reported in the gate artifact.
+
+The sub-session shares no conversation state with the authoring session and may inspect the repo read-only when the diff alone is not self-contained.
 
 Cross-family provenance is always the operator-chosen verdict model, never an assumption: with fewer vendors, pick whatever strong selector your credentials allow from a family other than the authoring one.
 
