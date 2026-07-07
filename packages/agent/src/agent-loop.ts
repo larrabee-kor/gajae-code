@@ -471,7 +471,7 @@ async function convertAndNormalizeMessages(
 
 export const INTENT_FIELD = "_i";
 
-function injectIntentIntoSchema(schema: unknown, mode: "require" | "optional" = "require"): unknown {
+function injectIntentIntoSchema(schema: unknown, mode: "require" | "optional" = "optional"): unknown {
 	if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
 	const schemaRecord = schema as Record<string, unknown>;
 	const propertiesValue = schemaRecord.properties;
@@ -527,7 +527,7 @@ export function normalizeTools(tools: AgentContext["tools"], injectIntent: boole
 function resolveIntentMode(intent: AgentTool["intent"]): "require" | "optional" | "omit" {
 	if (typeof intent === "function") return "omit";
 	if (intent === "optional" || intent === "omit") return intent;
-	return "require";
+	return intent === "require" ? "require" : "optional";
 }
 
 function extractIntent(args: Record<string, unknown>): { intent?: string; strippedArgs: Record<string, unknown> } {
