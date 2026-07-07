@@ -54,6 +54,7 @@ Yield with `result.data` containing:
 - `decisions`: important implementation decisions and assumptions
 - `verification`: checks performed, or precise verification left to the parent
 - `blockers`: unresolved blockers with attempted fixes; empty when none
+- In ultragoal red-team mode, `result.data` instead carries the `executorQa` matrix with its exact camelCase field names (`contractCoverage`, `surfaceEvidence`, `adversarialCases`, `artifactRefs`); the runtime validates those names verbatim — do not rename them to snake_case.
 </output_contract>
 
 <failure_recovery>
