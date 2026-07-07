@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-07-07
 ### Added
 
 - Added `/quit` as an alias of the `/exit` slash command, so the near-universal REPL/CLI quit verb shuts the session down instead of silently falling through to the model as a chat message. Like `/exit` it is a TUI-only shutdown: it is not advertised to ACP clients and is not listed as its own autocomplete/help entry.
