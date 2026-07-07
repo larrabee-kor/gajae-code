@@ -127,9 +127,7 @@ describe("default GJC definitions", () => {
 		const cleaner = fragments.find(fragment => fragment.relativePath.endsWith("ai-slop-cleaner.md"))!;
 		expect(cleaner.content).toContain("AI SLOP CLEANUP REPORT");
 		expect(cleaner.content).toContain("read-only detector");
-		const contracts = fragments.find(fragment =>
-			fragment.relativePath.endsWith("pipeline-validation-contracts.md"),
-		)!;
+		const contracts = fragments.find(fragment => fragment.relativePath.endsWith("pipeline-validation-contracts.md"))!;
 		expect(contracts.content).toContain("never user-facing");
 		expect(contracts.content).toContain("fails closed");
 	});
