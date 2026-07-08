@@ -407,20 +407,18 @@ function streamIntervalMs(): number {
 	return Math.max(200, Number(process.env.GJC_NOTIFICATIONS_STREAM_INTERVAL_MS) || 500);
 }
 // Max chars of a turn's assistant text carried by the FINALIZED turn_stream (and
-// the pre-ask capture). Default 3500 keeps the mirror a glanceable per-turn
-// summary; a client that splits long messages (the Telegram daemon does so via
-// splitTelegramHtml, scheduling each chunk through the shared rate-limit pool so
-// the fan-out never bypasses the per-chat limit) can raise it with
-// GJC_NOTIFICATIONS_TURN_MAX to deliver full turns. The value is clamped to a
-// finite [280, TURN_TEXT_MAX_CEILING] range: a non-finite or non-positive env
-// (unset, NaN, Infinity, <= 0) falls back to the default, so the cap can never
-// be unbounded. Live frames are intentionally NOT raised — they stay one
+// the pre-ask capture). Finalized turns default to the bounded full-turn ceiling
+// because split-capable clients such as the Telegram daemon schedule each
+// splitTelegramHtml chunk through the shared rate-limit pool. Operators who want
+// glanceable summaries can lower this with GJC_NOTIFICATIONS_TURN_MAX. The value
+// is always clamped to a finite [280, TURN_TEXT_MAX_CEILING] range so the cap can
+// never be unbounded. Live frames are intentionally NOT raised — they stay one
 // editable preview message rather than fanning a long in-progress turn across
 // sends.
 const TURN_TEXT_MAX_CEILING = 40_000;
 function turnTextMax(): number {
 	const raw = Number(process.env.GJC_NOTIFICATIONS_TURN_MAX);
-	if (!Number.isFinite(raw) || raw <= 0) return 3500;
+	if (!Number.isFinite(raw) || raw <= 0) return TURN_TEXT_MAX_CEILING;
 	return Math.min(TURN_TEXT_MAX_CEILING, Math.max(280, raw));
 }
 function resolveSettings(settingsOverride?: Settings): ResolvedSettings {

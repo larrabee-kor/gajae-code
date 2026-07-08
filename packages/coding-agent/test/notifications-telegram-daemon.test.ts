@@ -3223,7 +3223,7 @@ describe("telegram daemon rich final-answer promotion (Rev 3 verification)", () 
 		expect(sends.every(c => c.body.parse_mode === TELEGRAM_PARSE_MODE)).toBe(true);
 	});
 
-	test("(d) sendRichMessage throw falls back to chunk 0 now and requeues the rest (fairness)", async () => {
+	test("(d) oversized rich finals skip promotion and drain HTML chunks through the pool", async () => {
 		const raw = "B".repeat(9000);
 		const chunks = splitTelegramHtml(markdownToTelegramHtml(raw));
 		expect(chunks.length).toBeGreaterThan(1);
@@ -3232,8 +3232,9 @@ describe("telegram daemon rich final-answer promotion (Rev 3 verification)", () 
 		const daemon = makeRichDaemon(bot, { enabled: true });
 		const session = richSession();
 		await driveFinalizedTurn(daemon, bot, session, raw);
-		expect(countMethod(bot, "sendRichMessage")).toBe(1);
-		// Fairness: only the first HTML chunk is delivered on this token; the rest are requeued.
+		expect(countMethod(bot, "sendRichMessage")).toBe(0);
+		// Fairness: oversized rich payloads stay on the HTML path, where only the
+		// first chunk is delivered on this token and the rest are requeued.
 		const first = bot.calls.filter(c => c.method === "sendMessage");
 		expect(first).toHaveLength(1);
 		expect(first[0]!.body.text).toBe(chunks[0]);
@@ -3404,18 +3405,14 @@ describe("telegram daemon rich final-answer promotion (Rev 3 verification)", () 
 });
 
 // ---------------------------------------------------------------------------
-// G006: rich overflow boundary. Production caps the final answer at 3500 chars
-// (summaryFromMessage(..., 3500)), so a promoted sendRichMessage never overflows
-// under normal traffic and RICH_MESSAGE_LIMIT (rich-render.ts) stays a purely
-// non-behavioral marker. These tests pin the defended-but-prod-unreachable case:
-// an oversized (4096+) rich payload the Bot API rejects with {ok:false} MUST
-// degrade to the chunked HTML splitTelegramHtml fallback — N chunks, each
-// <= TELEGRAM_MESSAGE_LIMIT, with exactly one diagnostic warn — while normal
-// (<= limit) traffic stays a single send. Purely additive: no existing test case
-// is modified.
+// G006: rich overflow boundary. Oversized finalized answers stay on the HTML
+// chunk path instead of probing rich and then falling back in the same pool
+// drain. The lower-level fallback helper still degrades oversized rich failures
+// to split HTML when called directly; the daemon-level contract is that normal
+// routing avoids the predictable over-limit rich miss entirely.
 // ---------------------------------------------------------------------------
 describe("telegram daemon rich overflow boundary (G006)", () => {
-	test("(g) rich {ok:false} on a 4096+ payload falls back to N HTML chunks, each <= TELEGRAM_MESSAGE_LIMIT", async () => {
+	test("(g) 4096+ finalized payload skips rich and drains HTML chunks through the pool", async () => {
 		const raw = "D".repeat(9000);
 		const html = markdownToTelegramHtml(raw);
 		const chunks = splitTelegramHtml(html);
@@ -3428,9 +3425,9 @@ describe("telegram daemon rich overflow boundary (G006)", () => {
 		const session = richSession();
 		await driveFinalizedTurn(daemon, bot, session, raw);
 
-		// Rich attempted once, then the REAL daemon sendHtmlFallback closure runs:
-		// chunk 0 on this token, the rest requeued (fairness) and drained next flush.
-		expect(countMethod(bot, "sendRichMessage")).toBe(1);
+		// Oversized rich payloads are not promoted, so the granted pool slot maps to
+		// one HTML sendMessage and continuations are drained on later slots.
+		expect(countMethod(bot, "sendRichMessage")).toBe(0);
 		const first = bot.calls.filter(c => c.method === "sendMessage");
 		expect(first).toHaveLength(1);
 		expect(first[0]!.body.text).toBe(chunks[0]);
