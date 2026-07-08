@@ -6,6 +6,7 @@ import { getBundledModel } from "@gajae-code/ai";
 import { resetSettingsForTest, Settings } from "../src/config/settings";
 import {
 	buildRedactedAction,
+	completionNotifyDisabledByEnv,
 	getNotificationConfig,
 	isGloballyConfigured,
 	isSessionNotificationsEnabled,
@@ -36,6 +37,12 @@ const BASE_CFG: NotificationConfig = {
 	},
 	redact: false,
 	verbosity: "lean",
+	rich: {
+		enabled: true,
+	},
+	richDraft: {
+		enabled: false,
+	},
 	idleTimeoutMs: 60000,
 };
 
@@ -83,6 +90,12 @@ describe("notifications config", () => {
 			},
 			redact: true,
 			verbosity: "lean",
+			rich: {
+				enabled: true,
+			},
+			richDraft: {
+				enabled: false,
+			},
 			idleTimeoutMs: 1234,
 		});
 	});
@@ -186,6 +199,19 @@ describe("notifications config", () => {
 		expect(shouldRegisterNotificationsExtension({ cfg: GLOBAL_CFG, env: {} })).toBe(true);
 		expect(shouldRegisterNotificationsExtension({ cfg: BASE_CFG, env: {} })).toBe(false);
 		expect(shouldRegisterNotificationsExtension({ env: {} })).toBe(false);
+		expect(
+			shouldRegisterNotificationsExtension({
+				cfg: GLOBAL_CFG,
+				env: { GJC_NOTIFY: "off" },
+			}),
+		).toBe(false);
+		expect(
+			shouldRegisterNotificationsExtension({
+				cfg: BASE_CFG,
+				env: { GJC_NOTIFY: "FALSE", GJC_NOTIFICATIONS: "1", GJC_NOTIFICATIONS_TOKEN: "legacy-token" },
+			}),
+		).toBe(false);
+		expect(completionNotifyDisabledByEnv({ GJC_NOTIFY: " 0 " })).toBe(true);
 		expect(
 			shouldRegisterNotificationsExtension({
 				cfg: GLOBAL_CFG,

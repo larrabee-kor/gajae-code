@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `/effort` to show or set the current model reasoning effort, including a selector UI when run without arguments and validation for invalid effort names.
+- Added `--mpreset <profile>` option to the Telegram `/session_create` command, allowing users to specify a model profile preset when creating a session remotely (e.g. `/session_create path /repo --mpreset codex-eco`). Both `--mpreset <name>` and `--mpreset=<name>` forms are supported.
+- Pasting or drag-dropping a path to any existing image file into the interactive editor now attaches the image and inserts an `[image N]` placeholder instead of leaving the raw path in the prompt. Quoted paths, `file://` URIs, `~/` expansion, spaces, and macOS screenshot narrow no-break spaces are handled when the whole paste is a single supported image file.
+- Added `GJC_NOTIFY=off` as a per-run completion-notification opt-out.
+- Telegram mirror messages now render as native Bot API 10.1 rich messages on by default with a global `/rich on|off` toggle, while failing closed to the previous HTML path.
+
+### Changed
+
+- Upgraded the Extragoal review template with a stronger reviewer lane and optional maximalist N-of-N review recipe.
+
+### Fixed
+
+- `gjc team` on Windows/psmux now targets the GJC-managed leader session by name instead of trusting the inherited `TMUX_PANE`.
+- Kitty inline images no longer duplicate/stack or paint over transcript text when the diff renderer repaints the image line.
+- Session creation now forwards `--mpreset` as split argv instead of one combined argument.
+- The RPC server restores the duplicate-listen boundary error instead of masking it.
+- Mac Option+Enter no longer collides with the queue-message binding.
+- Telegram completion notifications suppress dot-only messages, and Telegram-originated input is shown immediately and recorded in prompt history.
+- The computer red-team CI gate avoids false positives from non-computer-control changes.
+
 ## [0.9.0] - 2026-07-07
 ### Added
 
