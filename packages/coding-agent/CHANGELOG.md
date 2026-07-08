@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-08
+
 ### Added
 
 - Added `/effort` to show or set the current model reasoning effort, including a selector UI when run without arguments and validation for invalid effort names.

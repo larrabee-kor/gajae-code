@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-08
+
 ### Fixed
 
 - Unified the Cursor client version used across provider requests and discovery.
