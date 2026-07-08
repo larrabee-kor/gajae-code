@@ -16,6 +16,7 @@ import { ToolExecutionComponent } from "../../modes/components/tool-execution";
 import { TtsrNotificationComponent } from "../../modes/components/ttsr-notification";
 import { getSymbolTheme, theme } from "../../modes/theme/theme";
 import type { InteractiveModeContext, TodoPhase } from "../../modes/types";
+import { completionNotifyDisabledByEnv } from "../../notifications/config";
 import { summaryFromMessage } from "../../notifications/helpers";
 import type { PlanApprovalDetails } from "../../plan-mode/approved-plan";
 import type { AgentSessionEvent } from "../../session/agent-session";
@@ -960,6 +961,8 @@ export class EventController {
 	}
 
 	sendCompletionNotification(): void {
+		// Per-run hard opt-out (env, config-untouched, child-inheritable): GJC_NOTIFY=off.
+		if (completionNotifyDisabledByEnv(process.env)) return;
 		const isBackgrounded = this.ctx.isBackgrounded !== false;
 		const notify = settings.get("completion.notify");
 		if (notify === "off") return;
