@@ -803,6 +803,67 @@ describe("telegram daemon", () => {
 		expect(ackSend).toBeDefined();
 	});
 
+	test("marks pending ask text seen before awaiting Telegram acknowledgement", async () => {
+		FakeWs.instances = [];
+		const agentDir = tempAgentDir();
+		const s = setPrivateAgentDir(settings(agentDir), agentDir);
+		let markAckStarted: () => void = () => {};
+		const ackStarted = new Promise<void>(resolve => {
+			markAckStarted = resolve;
+		});
+		let releaseAck: () => void = () => {};
+		const ackGate = new Promise<unknown>(resolve => {
+			releaseAck = () => resolve({ ok: true, result: { message_id: 999 } });
+		});
+		class BlockingAckBotApi extends FakeBotApi {
+			override async call(method: string, body: unknown): Promise<unknown> {
+				if (
+					method === "sendMessage" &&
+					(body as { text?: unknown }).text === "Received as an answer to the pending ask."
+				) {
+					this.calls.push({ method, body });
+					markAckStarted();
+					return ackGate;
+				}
+				return super.call(method, body);
+			}
+		}
+		const bot = new BlockingAckBotApi();
+		const daemon = new TelegramNotificationDaemon({
+			settings: s,
+			ownerId: "owner",
+			botToken: "tok",
+			chatId: "42",
+			botApi: bot,
+			WebSocketImpl: FakeWs as any,
+		});
+		daemon.connectSession("S", "ws://s", "ts");
+		await daemon.handleSessionMessage(daemon.sessions.get("S")!, {
+			type: "action_needed",
+			kind: "ask",
+			id: "ask1",
+			question: "Name it?",
+			options: ["a", "b"],
+		});
+		const askSend = bot.calls.find(c => c.method === "sendMessage");
+		const threadId = askSend!.body.message_thread_id;
+		const update = {
+			update_id: 1,
+			message: { chat: { id: 42 }, message_thread_id: threadId, text: "my typed answer", message_id: 99 },
+		};
+		const first = daemon.handleTelegramUpdate(update);
+		await ackStarted;
+		const duplicate = daemon.handleTelegramUpdate(update);
+		await Promise.resolve();
+		const repliesBeforeAck = FakeWs.instances[0]!.sent.map(frame => JSON.parse(frame)).filter(
+			frame => frame.type === "reply" && frame.id === "ask1",
+		);
+		expect(repliesBeforeAck).toHaveLength(1);
+		releaseAck();
+		await first;
+		await duplicate;
+	});
+
 	test("no-topic plain text does not answer the only pending ask", async () => {
 		FakeWs.instances = [];
 		const agentDir = tempAgentDir();
