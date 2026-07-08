@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Declared the glibc runtime requirement in Linux platform package metadata.
+
 ## [0.7.9] - 2026-07-01
 
 ### Changed
