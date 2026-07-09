@@ -215,7 +215,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 		session.agent.emitExternalEvent({ type: "agent_end", messages: [assistantMsg] });
 
 		// Wait for compaction completion, then verify waitForIdle blocks on queued continuation.
-		await compactionDone;
+		await withTimeout(compactionDone, 1000, "Threshold queued compaction timed out");
 		await Promise.resolve();
 		const idlePromise = session.waitForIdle();
 		let idleResolved = false;
@@ -224,7 +224,7 @@ describe("AgentSession auto-compaction queue resume", () => {
 		});
 		await Promise.resolve();
 		expect(idleResolved).toBe(false);
-		await withTimeout(idlePromise, 1000, "Queued continuation timed out");
+		await withTimeout(idlePromise, 1000, "Queued continuation did not become idle");
 
 		expect(continueSpy).toHaveBeenCalledTimes(1);
 		const runtimeSignals = getRuntimeSignals();
@@ -542,9 +542,16 @@ describe("AgentSession auto-compaction queue resume", () => {
 		await Promise.resolve();
 
 		expect(getRuntimeSignals()).toContain("todo:1/3");
-		await Promise.resolve();
-		await Promise.resolve();
-		await session.waitForIdle();
+		await withTimeout(
+			(async () => {
+				while (continueSpy.mock.calls.length === 0) {
+					await Bun.sleep(5);
+				}
+			})(),
+			1000,
+			"Todo reminder continuation did not run",
+		);
+		await withTimeout(session.waitForIdle(), 1000, "Todo reminder continuation did not become idle");
 		expect(continueSpy).toHaveBeenCalledTimes(1);
 	});
 });
