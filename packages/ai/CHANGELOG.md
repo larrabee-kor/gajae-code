@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.9.4] - 2026-07-09
 ### Fixed
 
 - Preserved Anthropic OAuth tool-call names and streamed arguments across interleaved tool-use blocks, preventing prefixed tool names and partial JSON deltas from being dropped or misattributed.
