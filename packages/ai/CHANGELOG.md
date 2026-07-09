@@ -8,6 +8,7 @@
 ### Fixed
 
 - Hid the non-callable `google-antigravity/gemini-3.1-pro-high` selector from bundled, dynamic, and cached Antigravity catalogs after live Cloud Code Assist calls returned HTTP 400; `google-antigravity/gemini-3.1-pro-low:high` remains the working high-thinking path.
+- Preserved Anthropic tool-use arguments supplied on `content_block_start` when no `input_json_delta` chunks follow, preventing finished tool calls from collapsing back to `{}`.
 
 ## [0.9.1] - 2026-07-08
 
