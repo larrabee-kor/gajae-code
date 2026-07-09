@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-07-09
+
+### Fixed
+
+- Stabilized hotfix release checks by making generated docs lazy-load verification independent of Bun's module cache, preserving the docs index sync gate, and polling coordinator MCP watch reconciliation for runtime prompt acknowledgements.
+- Updated macOS-specific queue shortcut and clipboard-temp image paste tests to match the shipped runtime behavior.
+
 ## [0.9.2] - 2026-07-09
 ### Added
 
