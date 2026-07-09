@@ -719,7 +719,7 @@ describe("InputController pasted clipboard image paths", () => {
 	const RED_1X1_PNG_BASE64 =
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
 
-	it("attaches terminal-pasted clipboard temp images and inserts a compact placeholder", async () => {
+	it("attaches terminal-pasted clipboard temp images and preserves the source path in the placeholder", async () => {
 		const imagePath = path.join(os.tmpdir(), `clipboard-2026-06-04-120441-${process.pid.toString(36)}CAC144E7.png`);
 		await Bun.write(imagePath, Buffer.from(RED_1X1_PNG_BASE64, "base64"));
 		try {
