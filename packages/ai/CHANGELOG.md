@@ -6,6 +6,7 @@
 ### Fixed
 
 - Preserved Anthropic OAuth tool-call names and streamed arguments across interleaved tool-use blocks, preventing prefixed tool names and partial JSON deltas from being dropped or misattributed.
+- Embedded `models.json` via a `with { type: "file" }` import so compiled release binaries load the bundled model catalog from bunfs instead of crashing at startup with `Cannot find module './packages/ai/src/models.json'` (v0.9.3 regression, #1914).
 
 ## [0.9.2] - 2026-07-09
 ### Added
