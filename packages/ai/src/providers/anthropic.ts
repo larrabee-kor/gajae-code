@@ -1513,7 +1513,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages"> = (
 										partial: output,
 									});
 								} else if (block.type === "toolCall") {
-									block.arguments = parseStreamingJson(block.partialJson);
+									if (block.partialJson.trim()) {
+										block.arguments = parseStreamingJson(block.partialJson);
+									}
 									delete (block as { partialJson?: string }).partialJson;
 									stream.push({
 										type: "toolcall_end",
