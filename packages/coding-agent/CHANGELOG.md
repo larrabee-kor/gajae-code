@@ -9,6 +9,11 @@
 - Added `--mpreset <profile>` support to Telegram `/session_create`, forwarding both `--mpreset <name>` and `--mpreset=<name>` as split argv to the spawned GJC child.
 - Added the built-in `skill_discovery` tool for runtime discovery of custom project/user skills without injecting the full skill catalog into the core prompt.
 - Pasting or drag-dropping a path to an existing image file now attaches the image and inserts an `[image N]` placeholder, including quoted paths, `file://` URIs, `~/` expansion, spaces, and macOS screenshot narrow no-break spaces.
+- Pasted clipboard-temp image paths now attach as `[image N] source="/path"`, so the model receives both the image payload and the retrievable raw temp file path; ordinary saved image paths remain literal prompt text instead of being consumed into opaque placeholders.
+
+### Changed
+
+- The status line (information bar) token-percentage now renders inline within the model segment, right after the reasoning-effort indicator, instead of as a trailing segment at the far end of the line, so the context usage percentage stays grouped with the model it describes. The standalone `context_pct` segment was removed from the `default`, `default-usage`, `compact`, `full`, `nerd`, `ascii`, and `custom` presets (it remains available for `minimal` and custom configs); the inline percentage is color-coded by context-usage level, can be disabled per-preset with `segmentOptions.model.showContextPercent: false`, and is auto-suppressed when a standalone `context_pct` segment is also active so the value is never shown twice.
 
 ### Fixed
 
