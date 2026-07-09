@@ -1143,7 +1143,8 @@ describe("Anthropic request fingerprint alignment", () => {
 
 	it("prefixes custom tool names when prefix is configured", () => {
 		expect(applyClaudeToolPrefix("Read", "proxy_")).toBe("proxy_Read");
-		expect(applyClaudeToolPrefix("proxy_Read", "proxy_")).toBe("proxy_Read");
+		expect(applyClaudeToolPrefix("proxy_Read", "proxy_")).toBe("proxy_proxy_Read");
 		expect(stripClaudeToolPrefix("proxy_Read", "proxy_")).toBe("Read");
+		expect(stripClaudeToolPrefix(applyClaudeToolPrefix("proxy_Read", "proxy_"), "proxy_")).toBe("proxy_Read");
 	});
 });
