@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.9.2] - 2026-07-09
 ### Added
 
 - Added `gjc --credential <selector>` for pinning a stored provider credential by `email:`, `id:`, `account:`, `project:`, or `provider/email:` during a session.
