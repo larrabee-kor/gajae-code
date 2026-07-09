@@ -2000,10 +2000,13 @@ export function createCoordinatorMcpServer(options: CoordinatorMcpServerOptions 
 				let matched = filterCoordinatorEvents(events, args, limit);
 				let timedOut = false;
 				if (matched.length === 0 && timeoutMs > 0) {
-					await waitForCoordinatorEvents(namespaceDir, timeoutMs);
-					await reconcileActiveTurnAcknowledgements();
-					events = await readCoordinatorEvents(namespaceDir);
-					matched = filterCoordinatorEvents(events, args, limit);
+					const deadline = Date.now() + timeoutMs;
+					while (matched.length === 0 && Date.now() < deadline) {
+						await waitForCoordinatorEvents(namespaceDir, Math.min(50, Math.max(1, deadline - Date.now())));
+						await reconcileActiveTurnAcknowledgements();
+						events = await readCoordinatorEvents(namespaceDir);
+						matched = filterCoordinatorEvents(events, args, limit);
+					}
 					timedOut = matched.length === 0;
 				}
 				return {

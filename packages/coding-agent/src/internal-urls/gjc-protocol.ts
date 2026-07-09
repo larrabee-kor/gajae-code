@@ -10,12 +10,15 @@
 import * as path from "node:path";
 import type { InternalResource, InternalUrl, ProtocolHandler } from "./types";
 
-type DocsIndex = typeof import("./docs-index.generated");
+type DocsIndex = {
+	EMBEDDED_DOC_FILENAMES: readonly string[];
+	EMBEDDED_DOCS: Record<string, string>;
+};
 
 let docsIndexPromise: Promise<DocsIndex> | undefined;
 
 function loadDocsIndex(): Promise<DocsIndex> {
-	docsIndexPromise ??= import("./docs-index.generated");
+	if (!docsIndexPromise) docsIndexPromise = import("./docs-index.generated");
 	return docsIndexPromise;
 }
 
