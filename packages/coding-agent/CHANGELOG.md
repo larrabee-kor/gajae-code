@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+
+- `RpcClient.onSessionEvent()` now exposes the full renderer-facing agent-wire event stream instead of dropping non-core session events such as notices, todo reminders, retry events, subagent steering, thinking-level changes, and goal updates, while `onEvent()` remains the filtered legacy `AgentEvent` subscription path.
 
 ## [0.9.3] - 2026-07-09
 
