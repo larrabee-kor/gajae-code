@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { LoginFlowState } from "./login-flow-logic";
 
 export type LoginFlowClient = {
@@ -14,24 +14,41 @@ export function LoginFlowSheet({
 	providerId,
 	client,
 	onClose,
+	openExternal,
 }: {
 	providerId: string;
 	client: LoginFlowClient;
 	onClose(): void;
+	openExternal?(url: string): void;
 }) {
 	const [flowId, setFlowId] = useState("");
+	// Per-effect-generation flow context: each start() gets its own cancel-once
+	// guard so a stale generation (StrictMode replay, prop change) cannot mark
+	// the live flow as already cancelled.
+	const flowContextRef = useRef<{ flowId: string; cancelled: boolean } | null>(null);
 	const [state, setState] = useState<LoginFlowState>("idle");
 	const [authUrl, setAuthUrl] = useState("");
 	const [instructions, setInstructions] = useState("");
 	const [promptMessage, setPromptMessage] = useState("");
 	const [redirectUrl, setRedirectUrl] = useState("");
 	const [error, setError] = useState("");
-
+	const [busy, setBusy] = useState(false);
 	useEffect(() => {
 		let cancelled = false;
+		const context = { flowId: "", cancelled: false };
+		flowContextRef.current = context;
+		const cancelOnce = () => {
+			if (context.cancelled || !context.flowId) return;
+			context.cancelled = true;
+			void client.cancel(context.flowId).catch(() => undefined);
+		};
 		client.start(providerId).then(
 			result => {
-				if (cancelled) return;
+				context.flowId = result.flowId;
+				if (cancelled) {
+					cancelOnce();
+					return;
+				}
 				setFlowId(result.flowId);
 				setState(result.state);
 				setAuthUrl(result.authUrl ?? "");
@@ -43,6 +60,7 @@ export function LoginFlowSheet({
 		);
 		return () => {
 			cancelled = true;
+			cancelOnce();
 		};
 	}, [client, providerId]);
 
@@ -70,18 +88,37 @@ export function LoginFlowSheet({
 	async function complete(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const oneShotRedirectUrl = redirectUrl.trim();
-		if (!flowId || !oneShotRedirectUrl) return;
+		if (!flowId || !oneShotRedirectUrl || busy) return;
+		setBusy(true);
+		setError("");
 		setRedirectUrl("");
-		const result = await client.complete(flowId, oneShotRedirectUrl);
-		setState(result.state);
+		try {
+			const result = await client.complete(flowId, oneShotRedirectUrl);
+			setState(result.state);
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setBusy(false);
+		}
 	}
 
 	async function cancel() {
-		if (flowId) {
-			const result = await client.cancel(flowId);
-			setState(result.state);
+		if (busy) return;
+		setBusy(true);
+		setError("");
+		try {
+			if (flowId) {
+				const context = flowContextRef.current;
+				if (context && context.flowId === flowId) context.cancelled = true;
+				const result = await client.cancel(flowId);
+				setState(result.state);
+			}
+			onClose();
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setBusy(false);
 		}
-		onClose();
 	}
 
 	return (
@@ -105,7 +142,7 @@ export function LoginFlowSheet({
 					<button
 						type="button"
 						className="neutral-action"
-						onClick={() => window.open(authUrl, "_blank", "noopener,noreferrer")}
+						onClick={() => (openExternal ?? (url => window.open(url, "_blank", "noopener,noreferrer")))(authUrl)}
 					>
 						Open browser sign-in
 					</button>
@@ -121,11 +158,11 @@ export function LoginFlowSheet({
 							autoComplete="off"
 						/>
 					</label>
-					<button className="primary-action" type="submit" disabled={!flowId || !redirectUrl.trim()}>
+					<button className="primary-action" type="submit" disabled={busy || !flowId || !redirectUrl.trim()}>
 						Complete login
 					</button>
 				</form>
-				<button type="button" className="neutral-action" onClick={() => void cancel()}>
+				<button type="button" className="neutral-action" onClick={() => void cancel()} disabled={busy}>
 					Cancel login
 				</button>
 			</section>
